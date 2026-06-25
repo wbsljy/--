@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>企业级数仓分层建模图</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: #fff;
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(0,0,0,.25);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: .5px; }
+
+    header a {
+      color: rgba(255,255,255,.85);
+      text-decoration: none;
+      font-size: .9rem;
+      padding: 6px 14px;
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 6px;
+      transition: background .2s;
+    }
+    header a:hover { background: rgba(255,255,255,.12); }
+
+    .page { display: none; padding: 32px; max-width: 1400px; margin: 0 auto; }
+    .page.active { display: block; }
+
+    /* 首页卡片 */
+    .home-title {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .home-title h2 { font-size: 1.6rem; margin-bottom: 8px; }
+    .home-title p { color: #666; font-size: .95rem; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      transition: transform .2s, box-shadow .2s, border-color .2s;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      border-color: #0f3460;
+    }
+
+    .card .badge {
+      display: inline-block;
+      font-size: .75rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .card h3 { font-size: 1.1rem; margin-bottom: 8px; }
+    .card p { font-size: .85rem; color: #666; line-height: 1.6; }
+
+    .badge-user    { background: #e74c3c; }
+    .badge-product { background: #8e44ad; }
+    .badge-shop    { background: #2980b9; }
+    .badge-trade   { background: #27ae60; }
+    .badge-market  { background: #e67e22; }
+
+    /* 图表页 */
+    .diagram-header {
+      margin-bottom: 20px;
+    }
+    .diagram-header h2 { font-size: 1.4rem; margin-bottom: 6px; }
+    .diagram-header .layers {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .layer-tag {
+      font-size: .78rem;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .layer-ods { background: #FFA500; color: #333; }
+    .layer-dim { background: #9370DB; color: #fff; }
+    .layer-dwd { background: #FF4D4D; color: #fff; }
+    .layer-dws { background: #89CFF0; color: #333; }
+    .layer-ads { background: #90EE90; color: #333; }
+
+    .diagram-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+      overflow: auto;
+    }
+
+    .diagram-box .mermaid {
+      display: flex;
+      justify-content: center;
+      min-height: 200px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 60px;
+      color: #999;
+      font-size: .95rem;
+    }
+
+    .nav-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+      padding: 0 32px;
+      max-width: 1400px;
+      margin-left: auto;
+      margin-right: auto;
+      margin-top: 16px;
+    }
+    .nav-tabs a {
+      font-size: .82rem;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: #fff;
+      color: #444;
+      text-decoration: none;
+      border: 1px solid #ddd;
+      transition: all .2s;
+    }
+    .nav-tabs a:hover, .nav-tabs a.active {
+      background: #0f3460;
+      color: #fff;
+      border-color: #0f3460;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>企业级数仓分层建模图</h1>
+  <a href="#/">← 返回首页</a>
+</header>
+
+<nav class="nav-tabs" id="navTabs" style="display:none">
+  <a href="#/user">用户主题</a>
+  <a href="#/product">商品维度</a>
+  <a href="#/shop">商户主题</a>
+  <a href="#/trade">交易主题</a>
+  <a href="#/market">营销主题</a>
+</nav>
+
+<!-- 首页 -->
+<div class="page active" id="page-home">
+  <div class="home-title">
+    <h2>数仓理论实战 · 五大数据域建模</h2>
+    <p>点击下方卡片查看各主题域的 ER 分层建模图</p>
+  </div>
+  <div class="cards">
+    <a class="card" href="#/user">
+      <span class="badge badge-user">主题域 01</span>
+      <h3>用户主题数据域</h3>
+      <p>ODS → DWD → DWS → ADS，涵盖用户基础信息、行为明细、行为汇总及跳失率、用户分层等应用表。</p>
+    </a>
+    <a class="card" href="#/product">
+      <span class="badge badge-product">主题域 02</span>
+      <h3>商品维度数据域</h3>
+      <p>ODS → DIM，涵盖 SKU/SPU/品牌/分类/Goods/地区六大维度表的构建与数据流转关系。</p>
+    </a>
+    <a class="card" href="#/shop">
+      <span class="badge badge-shop">主题域 03</span>
+      <h3>商户主题数据域</h3>
+      <p>ODS → DWD → DWS → ADS，涵盖店铺信息、店铺商品、SKU 指标汇总及下单排名等。</p>
+    </a>
+    <a class="card" href="#/trade">
+      <span class="badge badge-trade">主题域 04</span>
+      <h3>交易主题数据域</h3>
+      <p>ODS → DWD → DWS → ADS，涵盖订单明细、退款、商品/用户/地区汇总及订单统计应用表。</p>
+    </a>
+    <a class="card" href="#/market">
+      <span class="badge badge-market">主题域 05</span>
+      <h3>营销主题数据域</h3>
+      <p>ODS → DIM → DWD → DWS → ADS，涵盖优惠券维度、用券订单统计及城市排名分析。</p>
+    </a>
+  </div>
+</div>
+
+<!-- 各路由页面 -->
+<div class="page" id="page-user">
+  <div class="diagram-header">
+    <h2>用户主题数据域数仓分层</h2>
+    <div class="layers">
+      <span class="layer-tag layer-ods">ODS 贴源层</span>
+      <span class="layer-tag layer-dwd">DWD 明细层</span>
+      <span class="layer-tag layer-dws">DWS 汇总层</span>
+      <span class="layer-tag layer-ads">ADS 应用层</span>
+    </div>
+  </div>
+  <div class="diagram-box"><pre class="mermaid" id="mermaid-user"></pre></div>
+</div>
+
+<div class="page" id="page-product">
+  <div class="diagram-header">
+    <h2>商品维度数据域数仓分层</h2>
+    <div class="layers">
+      <span class="layer-tag layer-ods">ODS 贴源层</span>
+      <span class="layer-tag layer-dim">DIM 维度层</span>
+    </div>
+  </div>
+  <div class="diagram-box"><pre class="mermaid" id="mermaid-product"></pre></div>
+</div>
+
+<div class="page" id="page-shop">
+  <div class="diagram-header">
+    <h2>商户主题数据域数仓分层</h2>
+    <div class="layers">
+      <span class="layer-tag layer-ods">ODS 贴源层</span>
+      <span class="layer-tag layer-dwd">DWD 明细层</span>
+      <span class="layer-tag layer-dws">DWS 汇总层</span>
+      <span class="layer-tag layer-ads">ADS 应用层</span>
+    </div>
+  </div>
+  <div class="diagram-box"><pre class="mermaid" id="mermaid-shop"></pre></div>
+</div>
+
+<div class="page" id="page-trade">
+  <div class="diagram-header">
+    <h2>交易主题数据域数仓分层</h2>
+    <div class="layers">
+      <span class="layer-tag layer-ods">ODS 贴源层</span>
+      <span class="layer-tag layer-dwd">DWD 明细层</span>
+      <span class="layer-tag layer-dws">DWS 汇总层</span>
+      <span class="layer-tag layer-ads">ADS 应用层</span>
+    </div>
+  </div>
+  <div class="diagram-box"><pre class="mermaid" id="mermaid-trade"></pre></div>
+</div>
+
+<div class="page" id="page-market">
+  <div class="diagram-header">
+    <h2>营销主题数据域数仓分层</h2>
+    <div class="layers">
+      <span class="layer-tag layer-ods">ODS 贴源层</span>
+      <span class="layer-tag layer-dim">DIM 维度层</span>
+      <span class="layer-tag layer-dwd">DWD 明细层</span>
+      <span class="layer-tag layer-dws">DWS 汇总层</span>
+      <span class="layer-tag layer-ads">ADS 应用层</span>
+    </div>
+  </div>
+  <div class="diagram-box"><pre class="mermaid" id="mermaid-market"></pre></div>
+</div>
+
+<script>
+/* ===== Mermaid 图表定义（来自 mermaid保存.md）===== */
+const DIAGRAMS = {
+  user: `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff' }}}%%
+erDiagram
+    classDef ods fill:#FFA500,stroke:#333,stroke-width:2px;
+    classDef dwd fill:#FF4D4D,stroke:#333,stroke-width:2px;
+    classDef dws fill:#89CFF0,stroke:#333,stroke-width:2px;
+    classDef ads fill:#90EE90,stroke:#333,stroke-width:2px;
+
+    ods_user_userinfo-用户基础信息表:::ods {
+        string userid "用户ID"
+        string username "用户名称"
+        string userpassword "密码"
+        int sex "性别"
+        int usermoney "钱包"
+        int frozenmoney "近一个月的花费的总的金额"
+        string addressid "用户地址ID，0表示没有获取地址"
+        string regtime "注册时间"
+        string lastlogin "最后登录时间"
+        string lasttime "系统下载最后时间"
+    }
+    ods_userbehavior-用户行为记录表:::ods {
+        string user_id "用户标识"
+        string item_id "商品标识"
+        string category_id "商品分类标识"
+        string type "用户对商品的行为类型"
+        string action_time "行为时间"
+    }
+    ods_product_goodsinfo-商品信息表:::ods {
+        string goodsid "商品ID"
+        string goodsname "商品名称"
+        string category_id "商品分类ID"
+        string price "价格"
+        string pictureurl "图片URL"
+    }
+    dwd_user_userinfo-用户表:::dwd {
+        string user_id "用户ID"
+        string user_name "用户名称"
+        int sex "性别"
+        decimal user_money "钱包"
+        decimal frozen_money "近一个月的花费的总的金额"
+        string address_id "用户地址ID"
+        string reg_time "注册时间"
+        string last_login "最后登录时间"
+    }
+    dwd_user_behavior_detail_d-用户行为明细表:::dwd {
+        string user_id "用户标识"
+        string item_id "商品标识"
+        string category_id "商品分类标识"
+        string type "行为类型"
+        string action_time "行为时间"
+    }
+    dws_user_behavior_sum_d-用户行为汇总表:::dws {
+        string user_id "用户标识"
+        bigint view_cnt "浏览次数"
+        bigint fav_cnt "收藏次数"
+        bigint cart_cnt "加购物车次数"
+        bigint buy_cnt "购买次数"
+    }
+    dws_user_behavior_analysis_d-用户行为指标统计表:::dws {
+        bigint view_cnt "浏览次数"
+        bigint fav_cnt "收藏次数"
+        bigint cart_cnt "加购物车次数"
+        bigint buy_cnt "购买次数"
+        bigint view_uv "浏览人数"
+        bigint fav_uv "收藏人数"
+        bigint cart_uv "加购物车人数"
+        bigint buy_uv "购买人数"
+    }
+    dws_user_goods_sum_d-用户商品指标统计表:::dws {
+        string user_id "用户标识"
+        string goods_id "商品标识"
+        string goods_name "商品名称"
+        string category_id "商品分类标识"
+        bigint view_cnt "浏览次数"
+        bigint fav_cnt "收藏次数"
+        bigint cart_cnt "加购物车次数"
+        bigint buy_cnt "购买次数"
+    }
+    ads_user_behavior_analysis_d-用户行为业务分析表:::ads {
+        bigint avg_view_cnt "人均浏览次数"
+        bigint avg_fav_cnt "人均收藏次数"
+        bigint avg_cart_cnt "人均加购物车次数"
+        bigint avg_buy_cnt "人均购买次数"
+    }
+    ads_user_lost_rate_d-用户跳失率统计表:::ads {
+        decimal lost_rate "跳失率"
+    }
+    ads_goods_category_analysis_d-商品类目运营排名表:::ads {
+        string category_id "商品类别ID"
+        string goods_id "商品标识"
+        string goods_name "商品名称"
+        bigint view_cnt "浏览次数"
+        bigint view_rnk "浏览排名"
+    }
+    ads_user_behavior_level_full-用户分层表:::ads {
+        string user_id "用户ID"
+        string max_dd "最近访问日期"
+        string min_dd "最早访问日期"
+        bigint diff "浏览间隔天数"
+        bigint r_score "用户分层"
+    }
+    ods_user_userinfo-用户基础信息表 ||--|| dwd_user_userinfo-用户表 : "清洗转换"
+    ods_userbehavior-用户行为记录表 ||--|| dwd_user_behavior_detail_d-用户行为明细表 : "清洗转换"
+    dwd_user_behavior_detail_d-用户行为明细表 ||--o{ dws_user_behavior_sum_d-用户行为汇总表 : "按用户日期聚合"
+    dwd_user_behavior_detail_d-用户行为明细表 ||--o{ dws_user_behavior_analysis_d-用户行为指标统计表 : "按日期聚合"
+    dwd_user_behavior_detail_d-用户行为明细表 ||--o{ dws_user_goods_sum_d-用户商品指标统计表 : "按用户商品日期聚合"
+    ods_product_goodsinfo-商品信息表 ||--o{ dws_user_goods_sum_d-用户商品指标统计表 : "提供商品名称"
+    dws_user_behavior_analysis_d-用户行为指标统计表 ||--|| ads_user_behavior_analysis_d-用户行为业务分析表 : "计算人均"
+    dws_user_behavior_sum_d-用户行为汇总表 ||--o{ ads_user_lost_rate_d-用户跳失率统计表 : "计算跳失率"
+    dws_user_goods_sum_d-用户商品指标统计表 ||--o{ ads_goods_category_analysis_d-商品类目运营排名表 : "二次聚合排名"
+    ods_userbehavior-用户行为记录表 ||--|| ads_user_behavior_level_full-用户分层表 : "跳层直接计算"`,
+
+  product: `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff' }}}%%
+erDiagram
+    classDef ods fill:#FFA500,stroke:#333,stroke-width:2px;
+    classDef dim fill:#9370DB,stroke:#333,stroke-width:2px;
+
+    ods_product_spu-spu信息表:::ods { bigint id "商品id" string name "商品名称" bigint category_id "所属分类id" bigint brand_id "品牌id" int publish_status "上架状态" string create_time "创建时间" string update_time "更新时间" }
+    ods_product_spu_attr_value-spu属性值表:::ods { bigint id "id" bigint spu_id "商品id" bigint attr_id "属性id" string attr_name "属性名" string attr_value "属性值" int sort "顺序" }
+    ods_product_sku-sku信息表:::ods { bigint id "skuId" bigint spu_id "spuId" string name "sku名称" bigint catagory_id "所属分类id" bigint brand_id "品牌id" string default_image "默认图片" string title "标题" string subtitle "副标题" double price "价格" int weight "重量（克）" }
+    ods_product_sku_attr_value-sku销售属性表:::ods { bigint id "id" bigint sku_id "sku_id" bigint attr_id "attr_id" string attr_name "销售属性名" string attr_value "销售属性值" int sort "顺序" }
+    ods_product_brand-品牌信息表:::ods { bigint id "品牌id" string name "品牌名" string logo "品牌logo" int status "显示状态" string first_letter "检索首字母" int sort "排序" string remark "备注" }
+    ods_product_category-商品分类表:::ods { bigint id "分类id" string name "分类名称" bigint parent_id "父分类id" int status "是否显示" int sort "排序" string icon "图标地址" string unit "计量单位" }
+    ods_regioninfo-行政区划表:::ods { string regionid "地区ID" string parentid "父级区域ID" string regionname "地区名称" int regiontype "区域类别" int agencyid "无用字段" string pt "系统更新时间" }
+    ods_product_goodsbrand-商品品牌表:::ods { string supplierid "供应商ID" string brandtype "品牌类型" string pt "更新时间" }
+    ods_product_goodsinfo2-商品信息表2:::ods { string goodsid "商品ID" string typeid "品类ID" string markid "专场ID" string goodstag "档口名字" string brandtag "品牌名称" string customtag "商品详情" string goodsname "竞价排名" int clickcount "点击次数" double shopprice "售价" string addtime "建档时间" int isonsale "是否在售" int sales "销量" string dt "更新时间" }
+    dim_sku_detailed_info_full-sku商品维度表:::dim { bigint sku_id "商品id" string sku_name "商品名称" bigint catagory_id "所属三级分类id" string catagory_name "所属三级分类名字" bigint brand_id "品牌id" string brand_name "品牌名称" string sku_default_image "默认图片" double sku_price "价格" bigint spu_id "spu商品id" string spu_name "spu商品名称" }
+    dim_spu_detailed_info_full-spu商品维度表:::dim { bigint spu_id "spu商品id" string spu_name "spu商品名称" int spu_publish_status "上架状态" string spu_create_time "创建时间" bigint category_id "所属三级分类id" string category_name "所属三级分类名字" bigint brand_id "品牌id" string brand_name "品牌名称" }
+    dim_brand_detailed_info_full-品牌维度表:::dim { bigint id "品牌id" string name "品牌名称" string logo "品牌logo" string update_time "更新时间" }
+    dim_category_detailed_info_full-商品分类维度表:::dim { bigint category_3_id "三级分类id" string category_3_name "三级分类名称" bigint category_2_id "二级分类id" string category_2_name "二级分类名称" bigint category_1_id "一级分类id" string category_1_name "一级分类名称" }
+    dim_goods_detailed_info_full-goods维度表:::dim { string goodsid "商品ID" string brand_name "品牌名称" string goodsname "商品名称" double shopprice "售价" int isonsale "是否在售" int sales "销量" int category_3_id "三级分类id" string category_3_name "三级分类名称" }
+    dim_region_info_full-地区维度表:::dim { string county_id "区县id" string county_name "区县名称" string city_id "城市id" string city_name "城市名称" string province_id "省份id" string province_name "省份名称" string country_id "国家id" string country_name "国家名称" }
+    ods_product_sku-sku信息表 ||--|| dim_sku_detailed_info_full-sku商品维度表 : "left join聚合"
+    ods_product_spu-spu信息表 ||--|| dim_sku_detailed_info_full-sku商品维度表 : "提供spu_name"
+    ods_product_brand-品牌信息表 ||--|| dim_sku_detailed_info_full-sku商品维度表 : "提供品牌名称"
+    ods_product_category-商品分类表 ||--|| dim_sku_detailed_info_full-sku商品维度表 : "提供分类名称"
+    ods_product_sku_attr_value-sku销售属性表 ||--|| dim_sku_detailed_info_full-sku商品维度表 : "collect_set聚合"
+    ods_product_spu-spu信息表 ||--|| dim_spu_detailed_info_full-spu商品维度表 : "left join聚合"
+    ods_product_category-商品分类表 ||--|| dim_spu_detailed_info_full-spu商品维度表 : "提供分类名称"
+    ods_product_brand-品牌信息表 ||--|| dim_spu_detailed_info_full-spu商品维度表 : "提供品牌名称"
+    ods_product_spu_attr_value-spu属性值表 ||--|| dim_spu_detailed_info_full-spu商品维度表 : "collect_set聚合"
+    ods_product_brand-品牌信息表 ||--|| dim_brand_detailed_info_full-品牌维度表 : "union all"
+    ods_product_goodsbrand-商品品牌表 ||--|| dim_brand_detailed_info_full-品牌维度表 : "union all补充"
+    ods_product_category-商品分类表 ||--|| dim_category_detailed_info_full-商品分类维度表 : "自连接三级分类"
+    dim_category_detailed_info_full-商品分类维度表 ||--|| dim_goods_detailed_info_full-goods维度表 : "left join"
+    ods_product_goodsinfo2-商品信息表2 ||--|| dim_goods_detailed_info_full-goods维度表 : "主数据源"
+    ods_regioninfo-行政区划表 ||--|| dim_region_info_full-地区维度表 : "自连接省市区县"`,
+
+  shop: `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff' }}}%%
+erDiagram
+    classDef ods fill:#FFA500,stroke:#333,stroke-width:2px;
+    classDef dwd fill:#FF4D4D,stroke:#333,stroke-width:2px;
+    classDef dws fill:#89CFF0,stroke:#333,stroke-width:2px;
+    classDef ads fill:#90EE90,stroke:#333,stroke-width:2px;
+
+    ods_shop_base_info-店铺表:::ods { string shop_id "店铺ID" string shop_name "店铺名称" int shop_status "营业状态" }
+    ods_shop_spu_info-店铺商品表:::ods { string shop_id "店铺ID" string shop_name "店铺名称" int spu_id "商品ID" }
+    ods_product_goodsinfo-商品信息表:::ods { string goodsid "商品ID" string goodsname "商品名称" }
+    dim_shop_base_info_ss-店铺信息表:::dwd { string shop_id "店铺ID" string shop_name "店铺名称" int shop_status "营业状态" }
+    dwd_shop_spu_info_ss-店铺商品表:::dwd { string shop_id "店铺ID" string shop_name "店铺名称" int spu_id "商品ID" int spu_name "商品名称" }
+    dws_sku_summary_full-SKU指标汇总表:::dws { string spu_id "spu_id" bigint order_cnt "下单次数" bigint order_num "下单件数" bigint browse_cnt "商品浏览次数" bigint collection_cnt "商品收藏次数" bigint shopping_cart_cnt "加入购物车次数" }
+    dws_shop_order_summary_full-店铺订单统计汇总表:::dws { string shop_id "店铺ID" string shop_name "店铺名称" bigint order_cnt "下单次数" bigint order_num "下单件数" decimal order_total_amount "下单订单总额" bigint browse_cnt "商品浏览次数" }
+    dws_shop_spu_order_summary_full-店铺商品统计汇总表:::dws { string shop_id "店铺ID" string shop_name "店铺名称" string spu_id "spu_id" bigint order_cnt "下单次数" bigint order_num "下单件数" }
+    ads_shop_spu_order_rank_full-店铺商品下单排名表:::ads { string shop_id "店铺ID" string shop_name "店铺名称" string spu_id "spu_id" bigint order_cnt "下单次数" bigint order_num "下单件数" bigint rnk "排名" }
+    ods_shop_base_info-店铺表 ||--|| dim_shop_base_info_ss-店铺信息表 : "清洗加载"
+    ods_shop_spu_info-店铺商品表 ||--|| dwd_shop_spu_info_ss-店铺商品表 : "关联生成"
+    dim_shop_base_info_ss-店铺信息表 ||--o{ dwd_shop_spu_info_ss-店铺商品表 : "过滤有效店铺"
+    ods_product_goodsinfo-商品信息表 ||--o{ dwd_shop_spu_info_ss-店铺商品表 : "提供商品名称"
+    dwd_shop_spu_info_ss-店铺商品表 ||--o{ dws_shop_order_summary_full-店铺订单统计汇总表 : "按店铺聚合"
+    dws_sku_summary_full-SKU指标汇总表 ||--o{ dws_shop_order_summary_full-店铺订单统计汇总表 : "提供SKU指标"
+    dwd_shop_spu_info_ss-店铺商品表 ||--o{ dws_shop_spu_order_summary_full-店铺商品统计汇总表 : "按店铺商品聚合"
+    dws_sku_summary_full-SKU指标汇总表 ||--o{ dws_shop_spu_order_summary_full-店铺商品统计汇总表 : "提供SKU指标"
+    dws_shop_spu_order_summary_full-店铺商品统计汇总表 ||--|| ads_shop_spu_order_rank_full-店铺商品下单排名表 : "排名取前3"`,
+
+  trade: `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff' }}}%%
+erDiagram
+    classDef ods fill:#FFA500,stroke:#333,stroke-width:2px;
+    classDef dwd fill:#FF4D4D,stroke:#333,stroke-width:2px;
+    classDef dws fill:#89CFF0,stroke:#333,stroke-width:2px;
+    classDef ads fill:#90EE90,stroke:#333,stroke-width:2px;
+
+    ods_trade_order_item-订单项信息表:::ods { bigint id "id" bigint order_id "order_id" string order_sn "order_sn" bigint spu_id "spu_id" string spu_name "spu_name" bigint sku_id "商品sku编号" string sku_name "商品sku名字" double sku_price "商品sku价格" int sku_quantity "购买数量" double real_amount "优惠后金额" }
+    ods_trade_order2-订单表:::ods { bigint id "id" bigint user_id "member_id" string order_sn "订单号" string create_time "创建时间" double total_amount "订单总额" double pay_amount "应付总额" int status "订单状态" string receiver_province "省份" string receiver_city "城市" string receiver_region "区" }
+    ods_trade_refund_info-退款信息表:::ods { bigint id "id" bigint order_return_id "退款的订单" double refund "退款金额" string refund_sn "退款流水号" int refund_status "退款状态" }
+    dwd_trade_order_item_detail_d-订单项明细事实表:::dwd { bigint order_id "订单id" string order_sn "订单编号" string user_id "user_id" bigint spu_id "spu_id" string spu_name "spu_name" bigint sku_id "商品sku编号" string sku_name "商品sku名字" double sku_price "商品价格" int sku_quantity "购买数量" double pay_amount "应付总额" string receiver_province "省份" string receiver_city "城市" }
+    dwd_trade_order_info_detail_d-订单信息明细事实表:::dwd { bigint order_id "订单id" bigint user_id "member_id" string order_sn "订单号" string create_time "创建时间" double total_amount "订单总额" double pay_amount "应付总额" int status "订单状态" int is_refund "是否为退款订单" double refund "退款金额" string receiver_province "省份" string receiver_city "城市" }
+    dwd_trade_order_refund_info_d-订单退款明细事实表:::dwd { bigint id "id" bigint order_return_id "退款的订单" double refund "退款金额" string refund_sn "退款流水号" bigint user_id "member_id" string receiver_province "省份" string receiver_city "城市" }
+    dwd_user_behavior_detail_d-用户行为明细表:::dwd { bigint user_id "用户ID" int type "用户行为类型" bigint item_id "商品ID" string dt "日期" }
+    dws_spu_summary_d-商品统计汇总表:::dws { bigint spu_id "spu_id" bigint order_cnt "下单次数" bigint order_num "下单件数" decimal order_total_amount "下单订单总额" bigint browse_cnt "商品浏览次数" bigint collection_cnt "商品收藏次数" bigint shopping_cart_cnt "加入购物车次数" }
+    dws_user_summary_d-用户行为汇总表:::dws { bigint user_id "member_id" bigint browse_cnt "浏览次数" bigint collection_cnt "收藏次数" bigint shopping_cart_cnt "加购物车次数" bigint purchase_cnt "购买次数" bigint order_cnt "下单次数" decimal order_total_amount "下单订单总额" }
+    dws_region_summary_d-地区汇总表:::dws { string province "省份" string city "城市" string region "区" bigint order_cnt "下单次数" bigint order_num "下单件数" decimal order_total_amount "下单订单总额" bigint browse_cnt "浏览次数" bigint purchase_cnt "购买次数" }
+    ads_order_sum_full-订单汇总统计表:::ads { int recent_days "最近N天" bigint order_cnt "下单次数" decimal order_total_amount "下单订单总额" bigint order_user_cnt "下单用户数" }
+    ads_province_order_sum_full-各地区订单统计:::ads { int recent_days "最近N天" string province "省份" bigint order_cnt "下单次数" decimal order_total_amount "下单订单总额" bigint order_user_cnt "下单用户数" }
+    ods_trade_order_item-订单项信息表 ||--o{ dwd_trade_order_item_detail_d-订单项明细事实表 : "关联订单信息"
+    ods_trade_order2-订单表 ||--o{ dwd_trade_order_item_detail_d-订单项明细事实表 : "关联订单信息"
+    ods_trade_order2-订单表 ||--|| dwd_trade_order_info_detail_d-订单信息明细事实表 : "左关联退款"
+    ods_trade_refund_info-退款信息表 ||--o{ dwd_trade_order_info_detail_d-订单信息明细事实表 : "左关联退款"
+    ods_trade_refund_info-退款信息表 ||--|| dwd_trade_order_refund_info_d-订单退款明细事实表 : "左关联订单"
+    ods_trade_order2-订单表 ||--o{ dwd_trade_order_refund_info_d-订单退款明细事实表 : "左关联订单"
+    dwd_trade_order_item_detail_d-订单项明细事实表 ||--o{ dws_spu_summary_d-商品统计汇总表 : "订单聚合"
+    dwd_trade_order_refund_info_d-订单退款明细事实表 ||--o{ dws_spu_summary_d-商品统计汇总表 : "退款聚合"
+    dwd_user_behavior_detail_d-用户行为明细表 ||--o{ dws_spu_summary_d-商品统计汇总表 : "行为聚合"
+    dwd_user_behavior_detail_d-用户行为明细表 ||--o{ dws_user_summary_d-用户行为汇总表 : "行为聚合"
+    dwd_trade_order_item_detail_d-订单项明细事实表 ||--o{ dws_user_summary_d-用户行为汇总表 : "订单聚合"
+    dwd_trade_order_refund_info_d-订单退款明细事实表 ||--o{ dws_user_summary_d-用户行为汇总表 : "退款聚合"
+    dwd_trade_order_refund_info_d-订单退款明细事实表 ||--o{ dws_region_summary_d-地区汇总表 : "退款地区聚合"
+    dwd_trade_order_item_detail_d-订单项明细事实表 ||--o{ dws_region_summary_d-地区汇总表 : "订单地区聚合"
+    dwd_trade_order_info_detail_d-订单信息明细事实表 ||--o{ dws_region_summary_d-地区汇总表 : "提供用户地址"
+    dwd_user_behavior_detail_d-用户行为明细表 ||--o{ dws_region_summary_d-地区汇总表 : "行为关联地址"
+    dws_spu_summary_d-商品统计汇总表 ||--o{ ads_order_sum_full-订单汇总统计表 : "多日汇总"
+    dws_region_summary_d-地区汇总表 ||--o{ ads_province_order_sum_full-各地区订单统计 : "多日汇总"`,
+
+  market: `%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff' }}}%%
+erDiagram
+    classDef ods fill:#FFA500,stroke:#333,stroke-width:2px;
+    classDef dim fill:#9B59B6,stroke:#333,stroke-width:2px;
+    classDef dwd fill:#FF4D4D,stroke:#333,stroke-width:2px;
+    classDef dws fill:#89CFF0,stroke:#333,stroke-width:2px;
+    classDef ads fill:#90EE90,stroke:#333,stroke-width:2px;
+
+    ods_market_coupon-优惠券信息表:::ods { bigint id "id" int coupon_type "优惠券类型" string coupon_name "优惠券名字" double amount "金额" double min_point "使用门槛" string start_time "开始时间" string end_time "结束时间" int use_type "使用类型" int publish_count "发行数量" int use_count "已使用数量" int receive_count "领取数量" }
+    ods_market_coupon_spu_category-优惠券分类关联:::ods { bigint id "id" bigint coupon_id "优惠券id" bigint category_id "产品分类id" string category_name "产品分类名称" }
+    ods_market_coupon_spu-优惠券商品关联表:::ods { bigint id "id" bigint coupon_id "优惠券id" bigint spu_id "商品id" string spu_name "商品名称" }
+    dim_market_coupon_info_full-优惠券基础信息表:::dim { bigint coupon_id "id" int coupon_type "优惠卷类型" string coupon_name "优惠卷名字" double amount "金额" double min_point "使用门槛" int use_type "使用类型" bigint category_id "产品分类id" string category_name "产品分类名称" }
+    dwd_market_coupon_spu_d-优惠券与产品关联关系表:::dwd { bigint id "id" bigint coupon_id "优惠券id" bigint coupon_name "优惠券名称" bigint spu_id "商品id" string spu_name "商品名称" }
+    dwd_trade_order_info_detail_d-交易订单明细表:::dwd { bigint order_id "订单id" bigint coupon_id "优惠券id" double coupon_amount "优惠券抵扣金额" int is_refund "是否退单" string receiver_province "省份" string receiver_city "城市" }
+    dws_market_coupon_order_d-优惠券使用情况统计表:::dws { int coupon_type "优惠卷类型" bigint coupon_id "优惠券id" string coupon_name "优惠券名称" string receiver_province "省份" string receiver_city "城市" double coupon_amount "优惠券抵扣金额" bigint coupon_order_cnt "用券订单数" bigint coupon_refund_cnt "用券退单数" }
+    ads_market_coupon_analysis_d-优惠券使用情况统计表:::ads { int coupon_type "优惠卷类型" bigint coupon_id "优惠券id" string coupon_name "优惠券名称" string receiver_province "省份" string receiver_city "城市" bigint coupon_order_cnt "用券订单数" bigint rank "用券订单量排名" }
+    ads_market_coupon_city_d-优惠券城市使用情况统计表:::ads { string receiver_province "省份" string receiver_city "城市" bigint coupon_order_cnt "用券订单数" bigint rank "用券订单量排名" }
+    ods_market_coupon-优惠券信息表 ||--o{ dim_market_coupon_info_full-优惠券基础信息表 : "left join融合分类"
+    ods_market_coupon_spu_category-优惠券分类关联 ||--o{ dim_market_coupon_info_full-优惠券基础信息表 : "提供分类信息"
+    ods_market_coupon_spu-优惠券商品关联表 ||--o{ dwd_market_coupon_spu_d-优惠券与产品关联关系表 : "生成每日快照"
+    dim_market_coupon_info_full-优惠券基础信息表 ||--o{ dwd_market_coupon_spu_d-优惠券与产品关联关系表 : "提供优惠券名称"
+    dim_market_coupon_info_full-优惠券基础信息表 ||--o{ dws_market_coupon_order_d-优惠券使用情况统计表 : "join订单聚合"
+    dwd_trade_order_info_detail_d-交易订单明细表 ||--o{ dws_market_coupon_order_d-优惠券使用情况统计表 : "提供用券信息"
+    dws_market_coupon_order_d-优惠券使用情况统计表 ||--o{ ads_market_coupon_analysis_d-优惠券使用情况统计表 : "窗口排名取前3"
+    dws_market_coupon_order_d-优惠券使用情况统计表 ||--o{ ads_market_coupon_city_d-优惠券城市使用情况统计表 : "按城市聚合排名取前3"`
+};
+
+/* ===== 路由配置 ===== */
+const ROUTES = {
+  '/':        { page: 'page-home',    title: '企业级数仓分层建模图' },
+  '/user':    { page: 'page-user',    title: '用户主题数据域', key: 'user' },
+  '/product': { page: 'page-product', title: '商品维度数据域', key: 'product' },
+  '/shop':    { page: 'page-shop',    title: '商户主题数据域', key: 'shop' },
+  '/trade':   { page: 'page-trade',   title: '交易主题数据域', key: 'trade' },
+  '/market':  { page: 'page-market',  title: '营销主题数据域', key: 'market' },
+};
+
+const rendered = {};
+
+function getRoute() {
+  const hash = location.hash.replace('#', '') || '/';
+  return ROUTES[hash] ? hash : '/';
+}
+
+function showPage(route) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const cfg = ROUTES[route];
+  document.getElementById(cfg.page).classList.add('active');
+  document.title = cfg.title + ' · 数仓分层建模图';
+
+  const nav = document.getElementById('navTabs');
+  nav.style.display = route === '/' ? 'none' : 'flex';
+  nav.querySelectorAll('a').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + route);
+  });
+
+  if (cfg.key && !rendered[cfg.key]) {
+    renderDiagram(cfg.key);
+  }
+}
+
+async function renderDiagram(key) {
+  const el = document.getElementById('mermaid-' + key);
+  el.textContent = DIAGRAMS[key];
+  el.removeAttribute('data-processed');
+  try {
+    await mermaid.run({ nodes: [el] });
+    rendered[key] = true;
+  } catch (e) {
+    el.innerHTML = '<p style="color:red;padding:20px">图表渲染失败：' + e.message + '</p>';
+  }
+}
+
+/* 动态加载 mermaid（仅浏览器打开时从 CDN 拉取，无需本地安装） */
+function loadMermaid() {
+  return new Promise((resolve, reject) => {
+    if (window.mermaid) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+    s.onload = () => {
+      mermaid.initialize({ startOnLoad: false, er: { useMaxWidth: false }, securityLevel: 'loose' });
+      resolve();
+    };
+    s.onerror = () => reject(new Error('无法加载 Mermaid，请检查网络连接'));
+    document.head.appendChild(s);
+  });
+}
+
+window.addEventListener('hashchange', () => showPage(getRoute()));
+
+loadMermaid().then(() => showPage(getRoute())).catch(err => {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center"><h2>加载失败</h2><p>' + err.message + '</p><p style="color:#666;margin-top:12px">请确保电脑已联网后刷新页面</p></div>';
+});
+</script>
+</body>
+</html>
